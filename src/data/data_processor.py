@@ -20,6 +20,11 @@ class CustomDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
         
+        # Configure padding token if not set
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+    
     def __len__(self) -> int:
         return len(self.texts)
     
@@ -30,9 +35,17 @@ class CustomDataset(Dataset):
                                 padding='max_length',
                                 truncation=True,
                                 return_tensors='pt')
+        
+        # Reshape attention mask to [batch_size=1, n_heads=1, seq_len, seq_len]
+        # Create proper attention mask for transformer attention
+        attention_mask = encoding['attention_mask'].squeeze()
+        seq_length = attention_mask.size(0)
+        attention_mask = attention_mask.view(1, 1, seq_length, 1)
+        attention_mask = attention_mask.expand(-1, -1, -1, seq_length)
+        
         return {
             'input_ids': encoding['input_ids'].squeeze(),
-            'attention_mask': encoding['attention_mask'].squeeze()
+            'attention_mask': attention_mask
         }
 
 class DataProcessor:
