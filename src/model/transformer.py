@@ -30,28 +30,35 @@ class CustomTransformer(nn.Module):
         
         self.final_layer = nn.Linear(d_model, vocab_size)
         
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, return_attention=False):
         """Process input through the transformer model.
         
         Args:
             x: Input tensor of shape [batch_size, seq_length]
             mask: Optional attention mask
+            return_attention: Whether to return attention weights (default: False)
             
         Returns:
-            Output logits of shape [batch_size, seq_length, vocab_size]
+            output: Output logits of shape [batch_size, seq_length, vocab_size]
+            attention_weights: Optional list of attention weights if return_attention is True
         """
         # Embedding and positional encoding
         x = self.embedding(x) * torch.sqrt(torch.tensor(self.embedding.embedding_dim))
         x = self.pos_encoding(x)
         
         # Process through transformer layers
+        attention_weights_list = []
         for layer in self.transformer_layers:
-            x = layer(x, mask)
+            x, attention_weights = layer(x, mask, return_attention)
+            if return_attention:
+                attention_weights_list.append(attention_weights)
         
         # Final linear projection to vocabulary size
         output = self.final_layer(x)
         
-        return output
+        if return_attention:
+            return output, attention_weights_list
+        return output, None
 
 class TransformerLayer(nn.Module):
     """Single transformer layer with self-attention and feed-forward network.
@@ -82,22 +89,26 @@ class TransformerLayer(nn.Module):
         # Dropout
         self.dropout = nn.Dropout(dropout)
         
-    def forward(self, x, mask):
+    def forward(self, x, mask, return_attention=False):
         """Process input through self-attention and feed-forward layers.
         
         Args:
             x: Input tensor of shape [batch_size, seq_length, d_model]
             mask: Optional attention mask
+            return_attention: Whether to return attention weights
             
         Returns:
             Processed tensor of same shape as input
+            Optional attention weights if return_attention is True
         """
         # Self-attention with residual connection and layer norm
-        attn_output, _ = self.self_attn(x, x, x, mask=mask)
+        attn_output, attention_weights = self.self_attn(x, x, x, mask=mask, return_attention=return_attention)
         x = self.norm1(x + self.dropout(attn_output))
         
         # Feed-forward with residual connection and layer norm
         ff_output = self.feed_forward(x)
         x = self.norm2(x + self.dropout(ff_output))
         
-        return x
+        if return_attention:
+            return x, attention_weights
+        return x, None
