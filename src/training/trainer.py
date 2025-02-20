@@ -69,12 +69,33 @@ class Trainer:
             Dictionary containing training history
         """
         if self.use_wandb:
-            wandb.init(project="custom-llm", config={
-                "learning_rate": self.learning_rate,
-                "warmup_steps": self.warmup_steps,
-                "max_grad_norm": self.max_grad_norm,
-                "epochs": epochs
-            })
+            # Initialize W&B with comprehensive config
+            model_config = {
+                name: getattr(self.model, name, None)
+                for name in ['d_model', 'n_heads', 'n_layers', 'd_ff', 'vocab_size']
+                if hasattr(self.model, name)
+            }
+            
+            wandb.init(
+                project="custom-llm",
+                config={
+                    "model_architecture": type(self.model).__name__,
+                    "model_parameters": sum(p.numel() for p in self.model.parameters()),
+                    "trainable_parameters": sum(p.numel() for p in self.model.parameters() if p.requires_grad),
+                    "learning_rate": self.learning_rate,
+                    "warmup_steps": self.warmup_steps,
+                    "max_grad_norm": self.max_grad_norm,
+                    "epochs": epochs,
+                    "optimizer": type(self.optimizer).__name__,
+                    "scheduler": "WarmupLR",
+                    "loss_function": type(self.criterion).__name__,
+                    "device": str(self.device),
+                    **model_config
+                }
+            )
+            
+            # Log model architecture as a summary
+            wandb.watch(self.model, log="all", log_freq=log_interval)
         
         history = {
             'train_loss': [],
@@ -100,15 +121,40 @@ class Trainer:
                 # Forward pass
                 outputs, _ = self.model(input_ids, attention_mask)
                 
+                # Check for NaN in model outputs
+                if torch.isnan(outputs).any():
+                    print("Warning: NaN detected in model outputs")
+                    continue
+                
                 # Calculate loss (shift predictions and targets)
                 shift_logits = outputs[..., :-1, :].contiguous()
                 shift_labels = input_ids[..., 1:].contiguous()
+                
+                # Add numerical stability
+                shift_logits = torch.clamp(shift_logits, min=-100, max=100)  # Prevent extreme values
+                
                 loss = self.criterion(shift_logits.view(-1, shift_logits.size(-1)),
                                     shift_labels.view(-1))
+                
+                # Check for NaN in loss
+                if torch.isnan(loss):
+                    print("Warning: NaN detected in loss calculation")
+                    continue
                 
                 # Backward pass
                 self.optimizer.zero_grad()
                 loss.backward()
+                
+                # Check for NaN in gradients
+                has_nan_grad = False
+                for param in self.model.parameters():
+                    if param.grad is not None and torch.isnan(param.grad).any():
+                        has_nan_grad = True
+                        break
+                
+                if has_nan_grad:
+                    print("Warning: NaN detected in gradients")
+                    continue
                 
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
@@ -130,11 +176,25 @@ class Trainer:
                     perplexity = torch.exp(torch.tensor(avg_loss))
                     
                     if self.use_wandb:
-                        wandb.log({
-                            'train_loss': avg_loss,
-                            'train_perplexity': perplexity,
-                            'learning_rate': self.scheduler.get_last_lr()[0]
-                        }, step=global_step)
+                        # Log comprehensive training metrics
+                        metrics = {
+                            'train/loss': avg_loss,
+                            'train/perplexity': perplexity,
+                            'train/learning_rate': self.scheduler.get_last_lr()[0],
+                            'train/grad_norm': torch.nn.utils.clip_grad_norm_(self.model.parameters(), -1).item(),
+                        }
+                        
+                        # Log parameter statistics
+                        for name, param in self.model.named_parameters():
+                            if param.requires_grad:
+                                metrics.update({
+                                    f'train/params/{name}/mean': param.data.mean().item(),
+                                    f'train/params/{name}/std': param.data.std().item(),
+                                    f'train/grads/{name}/mean': param.grad.mean().item() if param.grad is not None else 0,
+                                    f'train/grads/{name}/std': param.grad.std().item() if param.grad is not None else 0
+                                })
+                        
+                        wandb.log(metrics, step=global_step)
             
             # Calculate average training metrics
             avg_train_loss = train_loss / train_steps
