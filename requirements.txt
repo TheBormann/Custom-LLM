@@ -9,3 +9,4 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 wandb>=0.15.0  # for experiment tracking
 pytest>=7.4.0  # for testing
+datasets>=2.0.0  # for loading datasets

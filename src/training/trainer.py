@@ -180,14 +180,29 @@ class Trainer:
             
         Returns:
             Tuple of (average loss, perplexity)
+            
+        Raises:
+            ValueError: If the dataloader is empty
         """
+        # Validate dataloader
+        if len(dataloader) == 0:
+            raise ValueError("Validation dataloader is empty. Please ensure your validation dataset contains data.")
+            
         self.model.eval()
         total_loss = 0
         total_steps = 0
         
         for batch in dataloader:
+            # Validate batch data
+            if not batch or 'input_ids' not in batch or 'attention_mask' not in batch:
+                continue
+                
             input_ids = batch['input_ids'].to(self.device)
             attention_mask = batch['attention_mask'].to(self.device)
+            
+            # Skip empty batches
+            if input_ids.size(0) == 0:
+                continue
             
             outputs, _ = self.model(input_ids, attention_mask)
             
@@ -199,6 +214,10 @@ class Trainer:
             
             total_loss += loss.item()
             total_steps += 1
+        
+        # Handle case where no valid batches were processed
+        if total_steps == 0:
+            raise ValueError("No valid batches found in validation dataloader. Please check your data preprocessing.")
         
         avg_loss = total_loss / total_steps
         perplexity = torch.exp(torch.tensor(avg_loss))
