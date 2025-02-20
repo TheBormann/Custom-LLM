@@ -22,6 +22,11 @@ class CustomAttention(nn.Module):
         
         assert d_model % n_heads == 0, 'Model dimension must be divisible by number of heads'
         
+        print(f"\nInitializing CustomAttention with:")
+        print(f"d_model: {d_model}")
+        print(f"n_heads: {n_heads}")
+        print(f"d_k (dimension per head): {d_model // n_heads}")
+        
         self.d_model = d_model
         self.n_heads = n_heads
         self.d_k = d_model // n_heads  # Dimension per head
@@ -60,6 +65,10 @@ class CustomAttention(nn.Module):
             attention_weights: Optional attention weights if return_attention is True
         """
         batch_size = query.size(0)
+        print(f"\nInput dimensions:")
+        print(f"Query shape: {query.shape}")
+        print(f"Key shape: {key.shape}")
+        print(f"Value shape: {value.shape}")
         
         # Linear projections and reshape for multi-head attention
         # We leave seq_len flexible so we can allow variable context windows
@@ -73,23 +82,36 @@ class CustomAttention(nn.Module):
         # Value: "What information should I pass on?"
         V = self.W_v(value).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         
+        print(f"\nAfter linear projections and reshape:")
+        print(f"Q shape: {Q.shape}")
+        print(f"K shape: {K.shape}")
+        print(f"V shape: {V.shape}")
+        
         # Scaled dot-product attention
         scores = torch.matmul(Q, K.transpose(-2, -1)) * self.attention_scale
+        print(f"\nAttention scores shape: {scores.shape}")
         
         # Apply mask to prevent attention to certain positions and handling of padding
         if mask is not None:
+            print(f"Mask shape: {mask.shape}")
+            # Expand mask for multi-head attention [batch_size, 1, seq_len, seq_len] -> [batch_size, n_heads, seq_len, seq_len]
+            mask = mask.unsqueeze(1).expand(-1, self.n_heads, -1, -1)
             scores = scores.masked_fill(mask == 0, float('-inf'))
         
         # Compute attention weights and apply dropout
         attention_weights = torch.softmax(scores, dim=-1)
         attention_weights = self.dropout(attention_weights)
+        print(f"Attention weights shape: {attention_weights.shape}")
         
         # Apply attention weights to values
         context = torch.matmul(attention_weights, V)
+        print(f"\nContext after attention shape: {context.shape}")
         
         # Reshape and apply output projection
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
+        print(f"Context after reshape shape: {context.shape}")
         output = self.W_o(context)
+        print(f"Final output shape: {output.shape}\n")
         
         if return_attention:
             return output, attention_weights
