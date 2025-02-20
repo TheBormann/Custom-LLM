@@ -36,12 +36,15 @@ class CustomDataset(Dataset):
                                 truncation=True,
                                 return_tensors='pt')
         
-        # Reshape attention mask to [batch_size=1, n_heads=1, seq_len, seq_len]
-        # Create proper attention mask for transformer attention
+        # Get the base attention mask from tokenizer
         attention_mask = encoding['attention_mask'].squeeze()
         seq_length = attention_mask.size(0)
-        attention_mask = attention_mask.view(1, 1, seq_length, 1)
-        attention_mask = attention_mask.expand(-1, -1, -1, seq_length)
+        
+        # Create causal mask (for autoregressive attention)
+        # Shape will be expanded to [batch_size, n_heads, seq_len, seq_len] during forward pass
+        causal_mask = torch.triu(torch.ones(seq_length, seq_length), diagonal=1).bool()
+        attention_mask = attention_mask.unsqueeze(-1) * attention_mask.unsqueeze(-2)
+        attention_mask = attention_mask.masked_fill(causal_mask, 0)
         
         return {
             'input_ids': encoding['input_ids'].squeeze(),
