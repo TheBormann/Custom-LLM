@@ -1,4 +1,4 @@
-from .model.transformer import CustomTransformer, TransformerLayer, PositionalEncoding
+from src.model import CustomTransformer, TransformerLayer, PositionalEncoding
 
 __all__ = [
     'CustomTransformer',

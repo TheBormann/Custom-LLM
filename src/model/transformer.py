@@ -1,5 +1,5 @@
-from model.attention import CustomAttention
-from model.position_encoding import PositionalEncoding
+from .attention import CustomAttention
+from .position_encoding import PositionalEncoding
 import torch
 import torch.nn as nn
 
@@ -82,7 +82,7 @@ class TransformerLayer(nn.Module):
         # Dropout
         self.dropout = nn.Dropout(dropout)
         
-    def forward(self, x, mask=None):
+    def forward(self, x, mask):
         """Process input through self-attention and feed-forward layers.
         
         Args:
@@ -93,7 +93,7 @@ class TransformerLayer(nn.Module):
             Processed tensor of same shape as input
         """
         # Self-attention with residual connection and layer norm
-        attn_output, _ = self.self_attn(x, x, x, attn_mask=mask)
+        attn_output, _ = self.self_attn(x, x, x, mask=mask)
         x = self.norm1(x + self.dropout(attn_output))
         
         # Feed-forward with residual connection and layer norm
