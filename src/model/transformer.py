@@ -1,45 +1,103 @@
+from model.attention import CustomAttention
+from model.position_encoding import PositionalEncoding
 import torch
 import torch.nn as nn
 
-class PositionalEncoding(nn.Module):
-    """Positional encoding for transformer input using sinusoidal functions.
+class CustomTransformer(nn.Module):
+    """Custom transformer model with reasoning capabilities.
     
-    Creates unique position-dependent patterns that are added to token embeddings.
-    Each position gets a distinct encoding while maintaining relative positional
-    relationships through sinusoidal patterns of different frequencies:
-    - High frequencies (lower dimensions) capture local, short-range relationships
-    - Low frequencies (higher dimensions) capture global, long-range relationships
-    
-    This implementation follows the paper 'Attention Is All You Need',
-    using sine and cosine functions of different frequencies.
+    This implementation follows a simplified transformer architecture with
+    additional components for enhanced reasoning capabilities.
     """
     
-    def __init__(self, d_model: int, max_seq_length: int):
+    def __init__(self,
+                 vocab_size: int,
+                 d_model: int = 512,
+                 n_heads: int = 8,
+                 n_layers: int = 6,
+                 d_ff: int = 2048,
+                 dropout: float = 0.1,
+                 max_seq_length: int = 1024):
         super().__init__()
-        wavelength = 10000.0 # Defined in the paper
         
-        pe = torch.zeros(max_seq_length, d_model)
-        # Create position indices
-        position = torch.arange(0, max_seq_length, dtype=torch.float).unsqueeze(1)
-        # Create frequency that starts high and decreases exponentially 
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-torch.log(torch.tensor(wavelength)) / d_model))
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.pos_encoding = PositionalEncoding(d_model, max_seq_length)
         
-        # Apply sine to even indices
-        pe[:, 0::2] = torch.sin(position * div_term)
-        # Apply cosine to odd indices
-        pe[:, 1::2] = torch.cos(position * div_term)
+        self.transformer_layers = nn.ModuleList([
+            TransformerLayer(d_model, n_heads, d_ff, dropout)
+            for _ in range(n_layers)
+        ])
         
-        # Add batch dimension and register as buffer
-        pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
+        self.final_layer = nn.Linear(d_model, vocab_size)
         
-    def forward(self, x):
-        """Add positional encoding to input tensor.
+    def forward(self, x, mask=None):
+        """Process input through the transformer model.
+        
+        Args:
+            x: Input tensor of shape [batch_size, seq_length]
+            mask: Optional attention mask
+            
+        Returns:
+            Output logits of shape [batch_size, seq_length, vocab_size]
+        """
+        # Embedding and positional encoding
+        x = self.embedding(x) * torch.sqrt(torch.tensor(self.embedding.embedding_dim))
+        x = self.pos_encoding(x)
+        
+        # Process through transformer layers
+        for layer in self.transformer_layers:
+            x = layer(x, mask)
+        
+        # Final linear projection to vocabulary size
+        output = self.final_layer(x)
+        
+        return output
+
+class TransformerLayer(nn.Module):
+    """Single transformer layer with self-attention and feed-forward network.
+    
+    Implements the standard transformer layer with multi-head self-attention
+    followed by a position-wise feed-forward network. Includes residual
+    connections and layer normalization.
+    """
+    
+    def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float):
+        super().__init__()
+        
+        # Multi-head attention
+        self.self_attn = CustomAttention(d_model, n_heads, dropout=dropout)
+        
+        # Feed-forward network
+        self.feed_forward = nn.Sequential(
+            nn.Linear(d_model, d_ff),     # Expand dimension (e.g., 512 -> 2048)
+            nn.ReLU(),                    # Non-linearity
+            nn.Dropout(dropout),          # Prevent overfitting
+            nn.Linear(d_ff, d_model)      # Project back to model dimension (2048 -> 512)
+        )
+        
+        # Layer normalization
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        
+        # Dropout
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, x, mask=None):
+        """Process input through self-attention and feed-forward layers.
         
         Args:
             x: Input tensor of shape [batch_size, seq_length, d_model]
+            mask: Optional attention mask
             
         Returns:
-            Tensor with positional encoding added
+            Processed tensor of same shape as input
         """
-        return x + self.pe[:, :x.size(1)]
+        # Self-attention with residual connection and layer norm
+        attn_output, _ = self.self_attn(x, x, x, attn_mask=mask)
+        x = self.norm1(x + self.dropout(attn_output))
+        
+        # Feed-forward with residual connection and layer norm
+        ff_output = self.feed_forward(x)
+        x = self.norm2(x + self.dropout(ff_output))
+        
+        return x
