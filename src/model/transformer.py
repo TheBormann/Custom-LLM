@@ -20,11 +20,15 @@ class CustomTransformer(nn.Module):
                  max_seq_length: int = 1024):
         super().__init__()
         
+        # Store model dimensions
+        self.d_model = d_model
+        
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model, max_seq_length)
         
+        # Ensure d_model is passed correctly to transformer layers
         self.transformer_layers = nn.ModuleList([
-            TransformerLayer(d_model, n_heads, d_ff, dropout)
+            TransformerLayer(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout)
             for _ in range(n_layers)
         ])
         
@@ -44,6 +48,7 @@ class CustomTransformer(nn.Module):
         """
         # Embedding and positional encoding
         x = self.embedding(x) * torch.sqrt(torch.tensor(self.embedding.embedding_dim))
+        
         x = self.pos_encoding(x)
         
         # Process through transformer layers
@@ -101,13 +106,18 @@ class TransformerLayer(nn.Module):
             Processed tensor of same shape as input
             Optional attention weights if return_attention is True
         """
+        
         # Self-attention with residual connection and layer norm
         attn_output, attention_weights = self.self_attn(x, x, x, mask=mask, return_attention=return_attention)
-        x = self.norm1(x + self.dropout(attn_output))
+        
+        x = x + self.dropout(attn_output) 
+        x = self.norm1(x) 
         
         # Feed-forward with residual connection and layer norm
         ff_output = self.feed_forward(x)
-        x = self.norm2(x + self.dropout(ff_output))
+        
+        x = x + self.dropout(ff_output)
+        x = self.norm2(x) 
         
         if return_attention:
             return x, attention_weights
