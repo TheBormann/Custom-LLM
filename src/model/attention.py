@@ -37,12 +37,15 @@ class CustomAttention(nn.Module):
         self.W_v = nn.Linear(d_model, d_model)  # Value transformation: contains information
         self.W_o = nn.Linear(d_model, d_model)  # Output projection: converts value to embedding space
         
-        # Initialize weights
+        # Initialize weights with scaled Xavier initialization
         for layer in [self.W_q, self.W_k, self.W_v, self.W_o]:
-            nn.init.xavier_uniform_(layer.weight)
-            nn.init.zeros_(layer.bias)
+            # Scale the initialization by sqrt(2.0 / (d_model + d_model)) for better gradient flow
+            gain = math.sqrt(2.0 / (d_model + d_model))
+            nn.init.xavier_uniform_(layer.weight, gain=gain)
+            # Initialize biases to small values instead of zeros
+            nn.init.uniform_(layer.bias, -0.1 / math.sqrt(d_model), 0.1 / math.sqrt(d_model))
         
-        self.dropout = nn.Dropout(dropout) # randomly sets elements to zero to prevent overfitting
+        self.dropout = nn.Dropout(dropout)
         
     def forward(self, 
                 query: torch.Tensor,
@@ -98,7 +101,9 @@ class CustomAttention(nn.Module):
             # Expand mask for multi-head attention [batch_size, 1, seq_len, seq_len] -> [batch_size, n_heads, seq_len, seq_len]
             mask = mask.unsqueeze(1).expand(-1, self.n_heads, -1, -1)
             logger.info(f"Applied mask shape: {mask.shape}")
-            scores = scores.masked_fill(mask == 0, float('-inf'))
+            
+            # Instead of applying masked_fill again, just add the mask (since it already has -inf)
+            scores = scores + mask
         
         # Compute attention weights and apply dropout
         attention_weights = torch.softmax(scores, dim=-1)

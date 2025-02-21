@@ -39,13 +39,21 @@ class CustomDataset(Dataset):
         # Get the base attention mask from tokenizer
         attention_mask = encoding['attention_mask'].squeeze()
         seq_length = attention_mask.size(0)
-        
+
         # Create causal mask (for autoregressive attention)
-        # Shape will be expanded to [batch_size, n_heads, seq_len, seq_len] during forward pass
-        causal_mask = torch.triu(torch.ones(seq_length, seq_length), diagonal=1).bool()
+        # Shape will be [seq_len, seq_len], with `True` above diagonal
+        causal_mask = torch.triu(torch.ones(seq_length, seq_length, dtype=torch.bool), diagonal=1)
+
+        # Expand padding mask to 2D (seq_len x seq_len)
         attention_mask = attention_mask.unsqueeze(-1) * attention_mask.unsqueeze(-2)
-        attention_mask = attention_mask.masked_fill(causal_mask, 0)
-        
+
+        # Apply causal mask (set future positions to 0)
+        attention_mask = attention_mask.masked_fill(causal_mask, 0.0)
+
+        # Convert to float and apply -inf where necessary
+        attention_mask = attention_mask.to(dtype=torch.float32)
+        attention_mask = attention_mask.masked_fill(attention_mask == 0, torch.finfo(attention_mask.dtype).min)
+
         return {
             'input_ids': encoding['input_ids'].squeeze(),
             'attention_mask': attention_mask
