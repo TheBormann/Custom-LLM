@@ -12,6 +12,10 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class Trainer:
     """Handles model training and validation."""
@@ -68,6 +72,11 @@ class Trainer:
         Returns:
             Dictionary containing training history
         """
+        logger.info(f"Starting training for {epochs} epochs")
+        logger.info(f"Using device: {self.device}")
+        logger.info(f"Training samples: {len(train_dataloader.dataset)}")
+        logger.info(f"Validation samples: {len(val_dataloader.dataset)}")
+        
         if self.use_wandb:
             # Initialize W&B with comprehensive config
             model_config = {
@@ -108,6 +117,8 @@ class Trainer:
         best_val_loss = float('inf')
         
         for epoch in range(epochs):
+            logger.info(f"Starting epoch {epoch + 1}/{epochs}")
+            
             # Training loop
             self.model.train()
             train_loss = 0
@@ -123,7 +134,7 @@ class Trainer:
                 
                 # Check for NaN in model outputs
                 if torch.isnan(outputs).any():
-                    print("Warning: NaN detected in model outputs")
+                    logger.warn("Warning: NaN detected in model outputs")
                     continue
                 
                 # Calculate loss (shift predictions and targets)
@@ -138,7 +149,7 @@ class Trainer:
                 
                 # Check for NaN in loss
                 if torch.isnan(loss):
-                    print("Warning: NaN detected in loss calculation")
+                    logger.warn("Warning: NaN detected in loss calculation")
                     continue
                 
                 # Backward pass
@@ -153,7 +164,7 @@ class Trainer:
                         break
                 
                 if has_nan_grad:
-                    print("Warning: NaN detected in gradients")
+                    logger.warn("Warning: NaN detected in gradients")
                     continue
                 
                 # Gradient clipping
@@ -209,14 +220,15 @@ class Trainer:
             history['train_perplexity'].append(train_perplexity.item())
             history['val_perplexity'].append(val_perplexity.item())
             
-            print(f'Epoch {epoch + 1}/{epochs}')
-            print(f'Average Train Loss: {avg_train_loss:.4f}')
-            print(f'Train Perplexity: {train_perplexity:.4f}')
-            print(f'Validation Loss: {val_loss:.4f}')
-            print(f'Validation Perplexity: {val_perplexity:.4f}')
+            # Replace existing print statements with logger
+            logger.info(f"Epoch {epoch + 1}/{epochs} Results:")
+            logger.info(f"Average Train Loss: {avg_train_loss:.4f}")
+            logger.info(f"Train Perplexity: {train_perplexity:.4f}")
+            logger.info(f"Validation Loss: {val_loss:.4f}")
+            logger.info(f"Validation Perplexity: {val_perplexity:.4f}")
             
-            # Save best model
             if save_path and val_loss < best_val_loss:
+                logger.info(f"New best model saved to {save_path}")
                 best_val_loss = val_loss
                 torch.save({
                     'epoch': epoch,

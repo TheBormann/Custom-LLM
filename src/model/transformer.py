@@ -2,6 +2,10 @@ from .attention import CustomAttention
 from .position_encoding import PositionalEncoding
 import torch
 import torch.nn as nn
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class CustomTransformer(nn.Module):
     """Custom transformer model with reasoning capabilities.
@@ -20,8 +24,9 @@ class CustomTransformer(nn.Module):
                  max_seq_length: int = 1024):
         super().__init__()
         
-        # Store model dimensions
+        # Store model dimensions and log initialization
         self.d_model = d_model
+        logger.info(f"Initializing CustomTransformer with d_model={d_model}, n_heads={n_heads}, n_layers={n_layers}")
         
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model, max_seq_length)
@@ -31,6 +36,7 @@ class CustomTransformer(nn.Module):
             TransformerLayer(d_model=d_model, n_heads=n_heads, d_ff=d_ff, dropout=dropout)
             for _ in range(n_layers)
         ])
+        logger.info(f"Created {n_layers} transformer layers with d_ff={d_ff}, dropout={dropout}")
         
         self.final_layer = nn.Linear(d_model, vocab_size)
         
@@ -46,20 +52,36 @@ class CustomTransformer(nn.Module):
             output: Output logits of shape [batch_size, seq_length, vocab_size]
             attention_weights: Optional list of attention weights if return_attention is True
         """
+        logger.debug(f"Input shape: {x.shape}, mask shape: {mask.shape if mask is not None else None}")
         # Embedding and positional encoding
         x = self.embedding(x) * torch.sqrt(torch.tensor(self.embedding.embedding_dim))
+        logger.debug(f"Embedding output shape: {x.shape}")
         
         x = self.pos_encoding(x)
+        logger.debug(f"Positional encoding output shape: {x.shape}")
         
         # Process through transformer layers
         attention_weights_list = []
-        for layer in self.transformer_layers:
+        layer_norms = []
+        for i, layer in enumerate(self.transformer_layers):
             x, attention_weights = layer(x, mask, return_attention)
+            logger.debug(f"Layer {i} output shape: {x.shape}")
+            # Log layer statistics
+            with torch.no_grad():
+                layer_mean = x.mean().item()
+                layer_std = x.std().item()
+                layer_norms.append(torch.norm(x).item())
+                logger.info(f"Layer {i} stats - Mean: {layer_mean:.4f}, Std: {layer_std:.4f}, Norm: {layer_norms[-1]:.4f}")
+            
             if return_attention:
                 attention_weights_list.append(attention_weights)
+                if attention_weights is not None:
+                    logger.info(f"Layer {i} attention pattern - Mean: {attention_weights.mean().item():.4f}, Sparsity: {(attention_weights < 0.01).float().mean().item():.4f}")
+                    logger.debug(f"Layer {i} attention weights shape: {attention_weights.shape}")
         
         # Final linear projection to vocabulary size
         output = self.final_layer(x)
+        logger.debug(f"Final output shape: {output.shape}")
         
         if return_attention:
             return output, attention_weights_list

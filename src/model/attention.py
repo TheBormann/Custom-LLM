@@ -1,7 +1,11 @@
 import torch
 import torch.nn as nn
 import math
+import logging
 from typing import Optional, Tuple
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class CustomAttention(nn.Module):
     """Custom implementation of scaled dot-product attention with additional features.
@@ -60,6 +64,7 @@ class CustomAttention(nn.Module):
             attention_weights: Optional attention weights if return_attention is True
         """
         batch_size = query.size(0)
+        logger.debug(f"Processing attention with shapes - Query: {query.shape}, Key: {key.shape}, Value: {value.shape}")
         
         # Linear projections and reshape for multi-head attention
         # We leave seq_len flexible so we can allow variable context windows
@@ -67,31 +72,47 @@ class CustomAttention(nn.Module):
         # this is because in memory these columns are close to each other and allow for an instant look up of an unique index of batch + head without mixup
         
         # Query: "What information should I look for?"
-        Q = self.W_q(query).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        # Key: "What information do I contain?"
-        K = self.W_k(key).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        # Value: "What information should I pass on?"
-        V = self.W_v(value).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        Q = self.W_q(query)
+        logger.info(f"Query projection stats - Mean: {Q.mean():.4f}, Std: {Q.std():.4f}, Max: {Q.max():.4f}, Min: {Q.min():.4f}")
+        Q = Q.view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         
-        # Scaled dot-product attention
+        # Key: "What information do I contain?"
+        K = self.W_k(key)
+        logger.info(f"Key projection stats - Mean: {K.mean():.4f}, Std: {K.std():.4f}, Max: {K.max():.4f}, Min: {K.min():.4f}")
+        K = K.view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        
+        # Value: "What information should I pass on?"
+        V = self.W_v(value)
+        logger.info(f"Value projection stats - Mean: {V.mean():.4f}, Std: {V.std():.4f}, Max: {V.max():.4f}, Min: {V.min():.4f}")
+        V = V.view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        
+        logger.debug(f"Projected shapes - Q: {Q.shape}, K: {K.shape}, V: {V.shape}")
+        
+        # dot-product -> attention
         scores = torch.matmul(Q, K.transpose(-2, -1)) * self.attention_scale
+        logger.info(f"Raw attention scores stats - Mean: {scores.mean():.4f}, Std: {scores.std():.4f}, Max: {scores.max():.4f}, Min: {scores.min():.4f}")
+        logger.info(f"Attention scores shape: {scores.shape}, scale: {self.attention_scale}")
         
         # Apply mask to prevent attention to certain positions and handling of padding
         if mask is not None:
             # Expand mask for multi-head attention [batch_size, 1, seq_len, seq_len] -> [batch_size, n_heads, seq_len, seq_len]
             mask = mask.unsqueeze(1).expand(-1, self.n_heads, -1, -1)
+            logger.info(f"Applied mask shape: {mask.shape}")
             scores = scores.masked_fill(mask == 0, float('-inf'))
         
         # Compute attention weights and apply dropout
         attention_weights = torch.softmax(scores, dim=-1)
+        logger.info(f"Attention weights stats - Mean: {attention_weights.mean():.4f}, Std: {attention_weights.std():.4f}, Max: {attention_weights.max():.4f}, Sparsity: {(attention_weights < 0.01).float().mean():.4f}")
         attention_weights = self.dropout(attention_weights)
         
         # Apply attention weights to values
         context = torch.matmul(attention_weights, V)
+        logger.debug(f"Context shape after attention: {context.shape}")
         
         # Reshape and apply output projection
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         output = self.W_o(context)
+        logger.debug(f"Final output shape: {output.shape}")
         
         if return_attention:
             return output, attention_weights
