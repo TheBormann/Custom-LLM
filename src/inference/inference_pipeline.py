@@ -27,13 +27,23 @@ class InferencePipeline:
     def from_pretrained(cls,
                        model_path: str,
                        tokenizer: PreTrainedTokenizer,
-                       device: Optional[str] = None) -> 'InferencePipeline':
+                       device: Optional[str] = None,
+                       model_config: Optional[Dict[str, Any]] = None) -> 'InferencePipeline':
         """Load a pretrained model from disk.
         
         Args:
             model_path: Path to the saved model checkpoint
             tokenizer: Pretrained tokenizer
             device: Device to load the model on
+            model_config: Optional dictionary containing model configuration parameters.
+                         If not provided, default values will be used.
+                         Example: {
+                             'd_model': 512,
+                             'n_heads': 8,
+                             'n_layers': 6,
+                             'd_ff': 2048,
+                             'dropout': 0.1
+                         }
             
         Returns:
             InferencePipeline instance
@@ -41,14 +51,23 @@ class InferencePipeline:
         # Load checkpoint
         checkpoint = torch.load(model_path, map_location='cpu')
         
-        # Initialize model with same config
+        # Use provided config or default values
+        default_config = {
+            'd_model': 512,
+            'n_heads': 8,
+            'n_layers': 6,
+            'd_ff': 2048,
+            'dropout': 0.1
+        }
+        
+        # Update default config with provided values
+        if model_config:
+            default_config.update(model_config)
+        
+        # Initialize model with config
         model = CustomTransformer(
             vocab_size=len(tokenizer),
-            d_model=512,  # These should match training config
-            n_heads=8,
-            n_layers=6,
-            d_ff=2048,
-            dropout=0.1
+            **default_config
         )
         
         # Load model state
