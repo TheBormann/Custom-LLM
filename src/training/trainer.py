@@ -22,7 +22,7 @@ class Trainer:
     def __init__(self,
                  model: nn.Module,
                  learning_rate: float = 1e-4,
-                 warmup_steps: int = 4000,
+                 warmup_steps: int = 200,
                  max_grad_norm: float = 1.0,
                  use_wandb: bool = False):
         self.model = model
