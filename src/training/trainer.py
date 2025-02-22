@@ -5,6 +5,7 @@ for the transformer model.
 """
 
 from typing import Optional, Dict, Any
+import os
 import torch
 import torch.nn as nn
 from torch.optim import Adam
@@ -273,6 +274,12 @@ class Trainer:
             logger.info(f"Validation Perplexity: {val_perplexity:.4f}")
             
             if save_path and val_loss < best_val_loss:
+                # Ensure checkpoint directory exists
+                save_dir = os.path.dirname(save_path)
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                    logger.info(f"Created checkpoint directory: {save_dir}")
+                
                 logger.info(f"New best model saved to {save_path}")
                 best_val_loss = val_loss
                 torch.save({
