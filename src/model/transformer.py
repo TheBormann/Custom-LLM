@@ -5,7 +5,6 @@ import torch.nn as nn
 import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 class CustomTransformer(nn.Module):
     """Custom transformer model with reasoning capabilities.

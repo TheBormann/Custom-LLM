@@ -15,7 +15,6 @@ import wandb
 import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 class Trainer:
     """Handles model training and validation."""
@@ -73,14 +72,14 @@ class Trainer:
             Dictionary containing training history
         """
         
-        if save_path:
-            try:
-                last_epoch, best_val_loss = self.load_checkpoint(save_path)
-                logger.info(f"Resuming training from epoch {last_epoch+1} with best validation loss {best_val_loss:.4f}")
-            except FileNotFoundError:
-                logger.info("No checkpoint found, starting training from scratch.")
-                last_epoch = 0
-                best_val_loss = float('inf')
+        #if save_path:
+        #    try:
+        #        last_epoch, best_val_loss = self.load_checkpoint(save_path)
+        #        logger.info(f"Resuming training from epoch {last_epoch+1} with best validation loss {best_val_loss:.4f}")
+        #    except FileNotFoundError:
+        #        logger.info("No checkpoint found, starting training from scratch.")
+        #        last_epoch = 0
+        #        best_val_loss = float('inf')
         
         logger.info(f"Starting training for {epochs} epochs")
         logger.info(f"Using device: {self.device}")

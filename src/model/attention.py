@@ -5,7 +5,6 @@ import logging
 from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 class CustomAttention(nn.Module):
     """Custom implementation of scaled dot-product attention with additional features.
