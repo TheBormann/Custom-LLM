@@ -72,6 +72,16 @@ class Trainer:
         Returns:
             Dictionary containing training history
         """
+        
+        if save_path:
+            try:
+                last_epoch, best_val_loss = self.load_checkpoint(save_path)
+                logger.info(f"Resuming training from epoch {last_epoch+1} with best validation loss {best_val_loss:.4f}")
+            except FileNotFoundError:
+                logger.info("No checkpoint found, starting training from scratch.")
+                last_epoch = 0
+                best_val_loss = float('inf')
+        
         logger.info(f"Starting training for {epochs} epochs")
         logger.info(f"Using device: {self.device}")
         logger.info(f"Training samples: {len(train_dataloader.dataset)}")
@@ -331,3 +341,11 @@ class Trainer:
         perplexity = torch.exp(torch.tensor(avg_loss))
         
         return avg_loss, perplexity
+    
+    def load_checkpoint(self, checkpoint_path: str):
+        """Load model, optimizer, and scheduler from a checkpoint."""
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        return checkpoint['epoch'], checkpoint['val_loss']
