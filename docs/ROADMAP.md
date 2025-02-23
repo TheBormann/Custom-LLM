@@ -9,42 +9,42 @@
 - [x] Create basic documentation
 
 ## 2. Model Architecture
-- [ ] Design simplified transformer architecture
+- [x] Design simplified transformer architecture
   - Small-scale version with fewer layers
   - Reduced attention heads
   - Manageable parameter count
-- [ ] Implement basic model components
+- [x] Implement basic model components
   - Self-attention mechanism
   - Feed-forward networks
   - Position encoding
 
 ## 3. Data Preparation
-- [ ] Select appropriate dataset
+- [x] Select appropriate dataset
   - Consider using subset of WikiText
   - Alternative: Books dataset or specialized domain data
-- [ ] Create data preprocessing pipeline
+- [x] Create data preprocessing pipeline
   - Tokenization
   - Text cleaning
   - Data formatting
 
 ## 4. Training Pipeline
-- [ ] Implement training loop
-- [ ] Set up loss function
-- [ ] Configure optimizer
-- [ ] Add basic logging and checkpointing
-- [ ] Implement validation process
+- [x] Implement training loop
+- [x] Set up loss function
+- [x] Configure optimizer
+- [x] Add basic logging and checkpointing
+- [x] Implement validation process
 
 ## 5. Training and Iteration
-- [ ] Initial model training
-- [ ] Monitor training metrics
-- [ ] Debug and optimize
-- [ ] Save model checkpoints
+- [x] Initial model training
+- [x] Monitor training metrics
+- [x] Debug and optimize
+- [x] Save model checkpoints
 
 ## 6. Inference and Testing
-- [ ] Create inference pipeline
-- [ ] Implement text generation
-- [ ] Basic model evaluation
-- [ ] Example demonstrations
+- [x] Create inference pipeline
+- [x] Implement text generation
+- [x] Basic model evaluation
+- [x] Example demonstrations
 
 # Phase 2: DeepSeek-Inspired Reasoning Extension
 
@@ -97,8 +97,8 @@
 - Balance between basic LLM and reasoning capabilities
 
 ## Success Criteria
-- [ ] Model trains without errors
-- [ ] Can generate coherent text
+- [x] Model trains without errors
+- [x] Can generate coherent text
 - [ ] Demonstrates basic reasoning capabilities
 - [ ] Handles multi-step logical problems
 - [ ] Runs on consumer hardware
