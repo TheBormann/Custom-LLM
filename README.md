@@ -37,11 +37,14 @@ These examples demonstrate the model's ability to handle various types of querie
 
 ### Training Visualization
 
-![Training Loss](docs/images/training_loss.png)
+![Training Loss](docs/images/loss.png)
 *Training and validation loss over epochs*
 
-![Attention Patterns](docs/images/attention_patterns.png)
-*Attention patterns visualization*
+![Token Accuracy](docs/images/token_accuracy.png)
+*Token accuracy over epochs*
+
+![Perplexity](docs/images/perplexity.png)
+*Perplexity over epochs*
 
 
 ## 🚧 Training Results - DeepSeek-Inspired Reasoning
