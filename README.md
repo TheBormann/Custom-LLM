@@ -84,33 +84,9 @@ pip install -r requirements.txt
 │   ├── data/              # Data processing
 │   ├── training/          # Training pipeline
 │   └── inference/         # Inference pipeline
-├── configs/               # Configuration files
-├── tests/                 # Unit tests
 ├── notebooks/             # Jupyter notebooks
-├── docs/                  # Documentation
-└── scripts/               # Utility scripts
+└── docs/                  # Documentation
 ```
-
-## Development
-
-### Running Tests
-```bash
-python -m pytest tests/
-```
-
-### Training the Model
-```bash
-python src/training/train.py --config configs/base_config.yaml
-```
-
-### Running Inference
-```bash
-python src/inference/generate.py --model-path [path-to-model] --prompt "Your prompt"
-```
-
-## Contributing
-
-Please read our contributing guidelines before submitting pull requests.
 
 ## License
 
